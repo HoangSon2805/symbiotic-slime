@@ -25,6 +25,9 @@ public class SlimeController : MonoBehaviour {
     private bool wasGrounded;
     private Coroutine squashCoroutine;
 
+    // ===== BIẾN MỚI ĐỂ QUẢN LÝ LƯỚT TRÊN KHÔNG =====
+    private bool canAirDash;
+
     // ===== BIẾN MỚI ĐỂ XỬ LÝ QUAY MẶT =====
     private bool isFacingRight = true;
 
@@ -43,16 +46,26 @@ public class SlimeController : MonoBehaviour {
         horizontalInput = Input.GetAxisRaw("Horizontal");
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, 0.2f, groundLayer);
 
+        // ===== LOGIC MỚI: HỒI LẠI CÚ LƯỚT KHI CHẠM ĐẤT =====
+        if (isGrounded)
+        {
+            canAirDash = true;
+        }
+
+        // Xử lý nhảy
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
             Jump();
         }
 
-        if (Input.GetKeyDown(KeyCode.LeftShift) && HasAbility(AbilityType.Dash))
+        // ===== LOGIC MỚI: KIỂM TRA ĐIỀU KIỆN LƯỚT =====
+        // Điều kiện: Có năng lực Lướt VÀ (đang trên mặt đất HOẶC còn lượt lướt trên không)
+        if (Input.GetKeyDown(KeyCode.LeftShift) && HasAbility(AbilityType.Dash) && (isGrounded || canAirDash))
         {
             StartCoroutine(DashCoroutine());
         }
 
+        // Xử lý hiệu ứng tiếp đất
         if (isGrounded && !wasGrounded)
         {
             HandleSquashAndStretch(0.8f, 1.2f);
@@ -98,10 +111,15 @@ public class SlimeController : MonoBehaviour {
     }
 
     IEnumerator DashCoroutine() {
+        // ===== LOGIC MỚI: TIÊU HAO LƯỢT LƯỚT TRÊN KHÔNG =====
+        if (!isGrounded)
+        {
+            canAirDash = false; // Dùng mất lượt lướt trên không
+        }
+
         isDashing = true;
         float originalGravity = rb.gravityScale;
         rb.gravityScale = 0f;
-        // Logic lướt bây giờ sẽ hoạt động đúng vì isFacingRight đã được cập nhật
         float dashDirection = isFacingRight ? 1 : -1;
         rb.velocity = new Vector2(dashDirection * dashForce, 0f);
 
@@ -110,6 +128,7 @@ public class SlimeController : MonoBehaviour {
         rb.gravityScale = originalGravity;
         isDashing = false;
     }
+
 
     private void OnCollisionEnter2D(Collision2D collision) {
         // ... Hàm này giữ nguyên ...
