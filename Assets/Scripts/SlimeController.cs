@@ -1,45 +1,90 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 
 public class SlimeController : MonoBehaviour {
-    // Public variables: Có thể chỉnh các giá trị này trực tiếp trong Unity Editor
+    // Public variables
     public float moveSpeed = 5f;
     public float jumpForce = 10f;
     public Transform groundCheck;
     public LayerMask groundLayer;
 
+    // Biến cho hiệu ứng Squishy
+    public float squashAmount = 0.8f;
+    public float squashSpeed = 10f;
+
     // Private variables
     private Rigidbody2D rb;
     private float horizontalInput;
     private bool isGrounded;
+    private Vector3 originalScale;
+    private bool wasGrounded;
 
-    // Hàm này được gọi 1 lần khi game bắt đầu
+    private Coroutine squashCoroutine; // <-- THAY ĐỔI: Thêm một biến để lưu trữ coroutine đang chạy
+
     void Start() {
-        // Lấy component Rigidbody2D từ chính object Slime
         rb = GetComponent<Rigidbody2D>();
+        originalScale = transform.localScale;
     }
 
-    // Hàm này được gọi mỗi frame
     void Update() {
-        // 1. Lấy input từ người chơi (phím A, D hoặc mũi tên trái, phải)
+        // 1. Lấy input
         horizontalInput = Input.GetAxisRaw("Horizontal");
 
-        // 2. Kiểm tra xem Slime có đang chạm đất không
-        // Physics2D.OverlapCircle tạo một vòng tròn vô hình tại vị trí groundCheck
-        // Nếu vòng tròn đó chạm vào bất cứ thứ gì thuộc groundLayer, isGrounded = true
+        // 2. Kiểm tra chạm đất
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, 0.2f, groundLayer);
 
-        // 3. Xử lý nhảy: Nếu người chơi nhấn Space và Slime đang trên mặt đất
+        // 3. Xử lý nhảy
         if (Input.GetButtonDown("Jump") && isGrounded)
         {
-            // Tác động một lực hướng lên trên để Slime nhảy
             rb.velocity = new Vector2(rb.velocity.x, jumpForce);
+            // Bắt đầu hiệu ứng giãn ra khi nhảy
+            HandleSquashAndStretch(1.2f, 0.8f); // <-- THAY ĐỔI: Gọi qua hàm quản lý
         }
+
+        // 4. Kiểm tra thời điểm vừa tiếp đất
+        if (isGrounded && !wasGrounded)
+        {
+            // Bắt đầu hiệu ứng co lại khi tiếp đất
+            HandleSquashAndStretch(0.8f, 1.2f); // <-- THAY ĐỔI: Gọi qua hàm quản lý
+        }
+
+        wasGrounded = isGrounded;
     }
 
-    // Hàm này được gọi theo một chu kỳ vật lý cố định, tốt hơn cho việc xử lý vật lý
     void FixedUpdate() {
-        // 4. Xử lý di chuyển
-        // Thay đổi vận tốc của Rigidbody theo chiều ngang
+        // 5. Xử lý di chuyển
         rb.velocity = new Vector2(horizontalInput * moveSpeed, rb.velocity.y);
+    }
+
+    // <-- THAY ĐỔI: Tạo một hàm riêng để quản lý việc bắt đầu Coroutine
+    void HandleSquashAndStretch(float yScale, float xScale) {
+        // Nếu có một coroutine co giãn đang chạy, hãy dừng nó lại
+        if (squashCoroutine != null)
+        {
+            StopCoroutine(squashCoroutine);
+        }
+        // Bắt đầu coroutine mới và lưu nó vào biến
+        squashCoroutine = StartCoroutine(SquashAndStretchCoroutine(yScale, xScale));
+    }
+
+    // Đổi tên hàm để tránh nhầm lẫn
+    IEnumerator SquashAndStretchCoroutine(float yScale, float xScale) {
+        Vector3 targetScale = new Vector3(originalScale.x * xScale, originalScale.y * yScale, originalScale.z);
+
+        // Co/giãn đến kích thước mục tiêu
+        while (Vector3.Distance(transform.localScale, targetScale) > 0.01f)
+        {
+            transform.localScale = Vector3.Lerp(transform.localScale, targetScale, Time.deltaTime * squashSpeed);
+            yield return null;
+        }
+        transform.localScale = targetScale;
+
+        // Trở về kích thước ban đầu
+        while (Vector3.Distance(transform.localScale, originalScale) > 0.01f)
+        {
+            transform.localScale = Vector3.Lerp(transform.localScale, originalScale, Time.deltaTime * squashSpeed);
+            yield return null;
+        }
+        transform.localScale = originalScale;
     }
 }
