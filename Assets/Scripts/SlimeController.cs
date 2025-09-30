@@ -21,6 +21,8 @@ public class SlimeController : MonoBehaviour {
     public Color wallClimbColor = Color.green; // Màu cho năng lực leo tường
     public float squashSpeed = 10f;
 
+    public int maxHealth = 3; // Máu tối đa
+    private int currentHealth; // Máu hiện tại
     // Private variables
     private Rigidbody2D rb;
     private SpriteRenderer spriteRenderer;
@@ -48,6 +50,9 @@ public class SlimeController : MonoBehaviour {
         rb = GetComponent<Rigidbody2D>();
         spriteRenderer = GetComponent<SpriteRenderer>();
         originalScale = transform.localScale;
+        //thêm máu
+        currentHealth = maxHealth; // Bắt đầu game với đầy máu
+        Debug.Log("Máu của Slime: " + currentHealth);
     }
 
     void Update() {
@@ -250,12 +255,33 @@ public class SlimeController : MonoBehaviour {
     private void OnTriggerEnter2D(Collider2D other) {
         if (other.CompareTag("Hazard"))
         {
+            // Bây giờ, khi chạm vào chông, Slime sẽ bị mất 1 máu
+            TakeDamage(1);
+        }
+    }
+
+    public void TakeDamage(int damage) {
+        // Trừ máu
+        currentHealth -= damage;
+        Debug.Log("Slime bị mất máu! Máu còn lại: " + currentHealth);
+
+        // Kiểm tra xem đã hết máu chưa
+        if (currentHealth <= 0)
+        {
+            // Nếu hết máu, gọi chuỗi hành động hồi sinh
             GameManager gameManager = FindObjectOfType<GameManager>();
             if (gameManager != null)
             {
-                // Yêu cầu GameManager bắt đầu chuỗi hành động hồi sinh
                 gameManager.StartRespawn(this.gameObject);
             }
+        } else
+        {
+            // Nếu chưa chết, chúng ta có thể thêm hiệu ứng nhấp nháy ở đây sau
+            Debug.Log("Slime nhấp nháy!");
         }
+    }
+    public void HealToFull() {
+        currentHealth = maxHealth;
+        Debug.Log("Máu đã được hồi đầy!");
     }
 }
