@@ -57,9 +57,7 @@ public class SlimeController : MonoBehaviour {
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, 0.2f, groundLayer);
         isTouchingWall = Physics2D.OverlapCircle(wallCheck.position, 0.2f, groundLayer);
 
-        // ===== LOGIC MỚI =====
-        // 1. Xác định "cơ hội" nhảy tường
-        // Chỉ cần chạm tường và ở trên không là có thể nhảy tường
+        // Xác định "cơ hội" nhảy tường
         if (HasAbility(AbilityType.WallClimb) && isTouchingWall && !isGrounded)
         {
             canWallJump = true;
@@ -68,19 +66,20 @@ public class SlimeController : MonoBehaviour {
             canWallJump = false;
         }
 
-        // 2. Xác định trạng thái "hiển thị" trượt tường
-        // Chỉ trượt khi người chơi chủ động ép vào tường
+        // Xác định trạng thái trượt tường
         isWallSliding = canWallJump && ((isFacingRight && horizontalInput > 0) || (!isFacingRight && horizontalInput < 0));
 
-        if (isGrounded)
+        // ===== LOGIC HỒI LƯỚT ĐÃ CẬP NHẬT =====
+        // Hồi lại cú lướt khi CHẠM ĐẤT hoặc KHI CÓ THỂ NHẢY TƯỜNG
+        if (isGrounded || canWallJump)
         {
             canAirDash = true;
         }
 
-        // 3. Điều kiện nhảy tường giờ đây dựa vào "cơ hội"
+        // Xử lý nhảy
         if (Input.GetButtonDown("Jump"))
         {
-            if (canWallJump) // <-- THAY ĐỔI Ở ĐÂY
+            if (canWallJump)
             {
                 Jump(true);
             } else if (isGrounded)
@@ -89,6 +88,7 @@ public class SlimeController : MonoBehaviour {
             }
         }
 
+        // Xử lý lướt
         if (Input.GetKeyDown(KeyCode.LeftShift) && HasAbility(AbilityType.Dash) && (isGrounded || canAirDash))
         {
             StartCoroutine(DashCoroutine());
