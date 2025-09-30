@@ -148,7 +148,7 @@ public class SlimeController : MonoBehaviour {
         }
 
         // Lướt (logic giữ nguyên)
-        if (Input.GetKeyDown(KeyCode.LeftShift) && HasAbility(AbilityType.Dash) && canAirDash)
+        if (Input.GetKeyDown(KeyCode.LeftShift) && HasAbility(AbilityType.Dash) && canAirDash && currentState != PlayerState.Dashing)
         {
             StartCoroutine(DashCoroutine());
         }
