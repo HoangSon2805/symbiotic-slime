@@ -248,11 +248,14 @@ public class SlimeController : MonoBehaviour {
         transform.localScale = finalOriginalScale;
     }
     private void OnTriggerEnter2D(Collider2D other) {
-        // Kiểm tra xem vật thể mà Slime vừa đi vào có tag là "Hazard" không
         if (other.CompareTag("Hazard"))
         {
-            // Tạm thời, chúng ta sẽ chỉ in ra một thông báo để kiểm tra
-            Debug.Log("Slime đã chạm vào chông! Aaaa!");
+            GameManager gameManager = FindObjectOfType<GameManager>();
+            if (gameManager != null)
+            {
+                // Yêu cầu GameManager bắt đầu chuỗi hành động hồi sinh
+                gameManager.StartRespawn(this.gameObject);
+            }
         }
     }
 }
