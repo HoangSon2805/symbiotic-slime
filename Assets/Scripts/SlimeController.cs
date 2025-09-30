@@ -43,6 +43,9 @@ public class SlimeController : MonoBehaviour {
     // ===== BIẾN MỚI ĐỂ XỬ LÝ QUAY MẶT =====
     private bool isFacingRight = true;
 
+    //UI
+    private UIManager uiManager;
+
     // Hệ thống năng lực
     private List<AbilityType> unlockedAbilities = new List<AbilityType>();
 
@@ -53,6 +56,10 @@ public class SlimeController : MonoBehaviour {
         //thêm máu
         currentHealth = maxHealth; // Bắt đầu game với đầy máu
         Debug.Log("Máu của Slime: " + currentHealth);
+
+        uiManager = FindObjectOfType<UIManager>();
+        // Cập nhật UI lần đầu khi game bắt đầu
+        uiManager.UpdateHealth(currentHealth);
     }
 
     void Update() {
@@ -263,6 +270,7 @@ public class SlimeController : MonoBehaviour {
     public void TakeDamage(int damage) {
         // Trừ máu
         currentHealth -= damage;
+        uiManager.UpdateHealth(currentHealth);
         Debug.Log("Slime bị mất máu! Máu còn lại: " + currentHealth);
 
         // Kiểm tra xem đã hết máu chưa
@@ -282,6 +290,7 @@ public class SlimeController : MonoBehaviour {
     }
     public void HealToFull() {
         currentHealth = maxHealth;
+        uiManager.UpdateHealth(currentHealth);
         Debug.Log("Máu đã được hồi đầy!");
     }
 }
