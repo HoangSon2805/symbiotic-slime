@@ -20,8 +20,12 @@ public class SlimeController : MonoBehaviour {
     public Color dashColor = Color.cyan;
     public Color wallClimbColor = Color.green; // Màu cho năng lực leo tường
     public float squashSpeed = 10f;
-
+    public float invincibilityDuration = 1f; // Thời gian bất tử sau khi bị thương
     public int maxHealth = 3; // Máu tối đa
+
+    public Vector2 knockbackForce = new Vector2(5f, 5f); // Lực đẩy (ngang, dọc)
+    private bool isKnockedBack = false;
+
     private int currentHealth; // Máu hiện tại
     // Private variables
     private Rigidbody2D rb;
@@ -49,7 +53,7 @@ public class SlimeController : MonoBehaviour {
     // Hệ thống năng lực
     private List<AbilityType> unlockedAbilities = new List<AbilityType>();
 
-    public float invincibilityDuration = 1f; // Thời gian bất tử sau khi bị thương
+    
     private bool isInvincible = false; // Cờ để kiểm tra trạng thái bất tử
 
     void Start() {
@@ -66,7 +70,7 @@ public class SlimeController : MonoBehaviour {
     }
 
     void Update() {
-        if (isDashing) return;
+        if (isDashing || isKnockedBack) return;
 
         horizontalInput = Input.GetAxisRaw("Horizontal");
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, 0.2f, groundLayer);
@@ -117,8 +121,11 @@ public class SlimeController : MonoBehaviour {
     }
 
     void FixedUpdate() {
-        if (isDashing) return;
+        
+        // KHÔNG LÀM GÌ CẢ nếu đang lướt hoặc đang bị đẩy lùi
+        if (isDashing || isKnockedBack) return;
 
+        rb.velocity = new Vector2(horizontalInput * moveSpeed, rb.velocity.y);
         // Chỉ áp dụng hiệu ứng trượt khi isWallSliding là true
         if (isWallSliding)
         {
@@ -204,10 +211,17 @@ public class SlimeController : MonoBehaviour {
                 {
                     Absorb(abilityGrant.abilityToGrant, collision.gameObject);
                 }
-            } else
+            } else // Va chạm từ bên hông
             {
-                // NẾU VA CHẠM TỪ BÊN HÔNG HOẶC TỪ DƯỚI LÊN -> MẤT MÁU
+                // 1. Gây sát thương (hàm TakeDamage sẽ tự kiểm tra bất tử)
                 TakeDamage(1);
+
+                // 2. Luôn kích hoạt Knockback NẾU không đang bị đẩy lùi
+                // Điều này độc lập với việc có bị mất máu hay không
+                if (!isKnockedBack)
+                {
+                    StartCoroutine(KnockbackCoroutine(collision.transform));
+                }
             }
         } else if (collision.gameObject.CompareTag("Door"))
         {
@@ -288,6 +302,10 @@ public class SlimeController : MonoBehaviour {
         if (other.CompareTag("Hazard"))
         {
             TakeDamage(1);
+            if (!isKnockedBack)
+            {
+                StartCoroutine(KnockbackCoroutine(other.transform));
+            }
         }
         // THÊM LOGIC MỚI
         else if (other.CompareTag("Key"))
@@ -304,13 +322,13 @@ public class SlimeController : MonoBehaviour {
     }
 
     public void TakeDamage(int damage) {
-        // NẾU ĐANG BẤT TỬ -> KHÔNG NHẬN SÁT THƯƠNG
+        // Tự kiểm tra trạng thái bất tử bên trong
         if (isInvincible) return;
 
         currentHealth -= damage;
         uiManager.UpdateHealth(currentHealth);
 
-        // Kích hoạt trạng thái bất tử và bắt đầu hiệu ứng nhấp nháy
+        // Bắt đầu coroutine bất tử
         StartCoroutine(InvincibilityCoroutine());
 
         if (currentHealth <= 0)
@@ -321,6 +339,25 @@ public class SlimeController : MonoBehaviour {
                 gameManager.StartRespawn(this.gameObject);
             }
         }
+    }
+
+    private IEnumerator KnockbackCoroutine(Transform damageSource) {
+        isKnockedBack = true; // BẮT ĐẦU trạng thái bị đẩy lùi, khóa điều khiển
+
+        // Tính toán hướng đẩy lùi
+        Vector2 knockbackDirection = (transform.position - damageSource.position).normalized;
+        if (knockbackDirection.y < 0.1f)
+        {
+            knockbackDirection.y = 0.1f;
+        }
+
+        // Tác động lực đẩy
+        rb.velocity = new Vector2(knockbackDirection.x * knockbackForce.x, knockbackDirection.y * knockbackForce.y);
+
+        // Đợi một chút để lực đẩy có hiệu lực
+        yield return new WaitForSeconds(0.2f);
+
+        isKnockedBack = false; // KẾT THÚC trạng thái bị đẩy lùi, trả lại điều khiển
     }
 
     private IEnumerator InvincibilityCoroutine() {
@@ -352,7 +389,17 @@ public class SlimeController : MonoBehaviour {
     }
     public void HealToFull() {
         currentHealth = maxHealth;
-        uiManager.UpdateHealth(currentHealth);
-        Debug.Log("Máu đã được hồi đầy!");
+
+        // ===== 2 DÒNG NÀY ĐỂ RESET TRẠNG THÁI =====
+        isInvincible = false;
+        isKnockedBack = false;
+
+        // Cập nhật lại UI để hiển thị đầy máu
+        if (uiManager != null) // Thêm kiểm tra để tránh lỗi khi game mới bắt đầu
+        {
+            uiManager.UpdateHealth(currentHealth);
+        }
+
+        Debug.Log("Máu đã được hồi đầy và trạng thái đã được reset!");
     }
 }
