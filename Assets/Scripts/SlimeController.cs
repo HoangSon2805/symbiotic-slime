@@ -49,6 +49,9 @@ public class SlimeController : MonoBehaviour {
     // Hệ thống năng lực
     private List<AbilityType> unlockedAbilities = new List<AbilityType>();
 
+    public float invincibilityDuration = 1f; // Thời gian bất tử sau khi bị thương
+    private bool isInvincible = false; // Cờ để kiểm tra trạng thái bất tử
+
     void Start() {
         rb = GetComponent<Rigidbody2D>();
         spriteRenderer = GetComponent<SpriteRenderer>();
@@ -275,25 +278,51 @@ public class SlimeController : MonoBehaviour {
     }
 
     public void TakeDamage(int damage) {
-        // Trừ máu
+        // NẾU ĐANG BẤT TỬ -> KHÔNG NHẬN SÁT THƯƠNG
+        if (isInvincible) return;
+
         currentHealth -= damage;
         uiManager.UpdateHealth(currentHealth);
-        Debug.Log("Slime bị mất máu! Máu còn lại: " + currentHealth);
 
-        // Kiểm tra xem đã hết máu chưa
+        // Kích hoạt trạng thái bất tử và bắt đầu hiệu ứng nhấp nháy
+        StartCoroutine(InvincibilityCoroutine());
+
         if (currentHealth <= 0)
         {
-            // Nếu hết máu, gọi chuỗi hành động hồi sinh
             GameManager gameManager = FindObjectOfType<GameManager>();
             if (gameManager != null)
             {
                 gameManager.StartRespawn(this.gameObject);
             }
-        } else
-        {
-            // Nếu chưa chết, chúng ta có thể thêm hiệu ứng nhấp nháy ở đây sau
-            Debug.Log("Slime nhấp nháy!");
         }
+    }
+
+    private IEnumerator InvincibilityCoroutine() {
+        Debug.Log("Slime đã trở nên bất tử!");
+        isInvincible = true;
+
+        // Hiệu ứng nhấp nháy
+        // Chúng ta sẽ bật tắt SpriteRenderer 5 lần trong 1 giây
+        for (float i = 0; i < invincibilityDuration; i += 0.2f)
+        {
+            // Nếu sprite đang hiện thì ẩn nó đi
+            if (spriteRenderer.enabled)
+            {
+                spriteRenderer.enabled = false;
+            }
+            // Nếu sprite đang ẩn thì hiện nó lên
+            else
+            {
+                spriteRenderer.enabled = true;
+            }
+            // Đợi 0.1 giây
+            yield return new WaitForSeconds(0.1f);
+        }
+
+        // Đảm bảo sau khi kết thúc, sprite luôn hiện lên
+        spriteRenderer.enabled = true;
+        isInvincible = false;
+        Debug.Log("Slime không còn bất tử!");
     }
     public void HealToFull() {
         currentHealth = maxHealth;
