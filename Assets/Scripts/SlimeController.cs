@@ -192,11 +192,14 @@ public class SlimeController : MonoBehaviour {
         // Tạo ra viên đạn tại vị trí FirePoint của Slime
         GameObject newProjectile = Instantiate(playerProjectilePrefab, playerFirePoint.position, Quaternion.identity);
 
+        // ===== GÁN PHE PHÁI CHO VIÊN ĐẠN =====
+        newProjectile.GetComponent<Projectile>().owner = Projectile.ProjectileOwner.Player;
+
         // Điều chỉnh hướng của viên đạn dựa vào hướng mặt của Slime
         if (!isFacingRight)
         {
-            // Nếu Slime quay trái, lật viên đạn lại
-            newProjectile.transform.localScale = new Vector3(-newProjectile.transform.localScale.x, newProjectile.transform.localScale.y, newProjectile.transform.localScale.z);
+            // Nếu Slime quay trái, XOAY viên đạn lại 180 độ
+            newProjectile.transform.Rotate(0f, 180f, 0f);
         }
 
         // Chơi âm thanh bắn
