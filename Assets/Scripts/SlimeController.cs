@@ -29,6 +29,9 @@ public class SlimeController : MonoBehaviour {
 
     [Header("Effects")]
     public ParticleSystem jumpEffect;
+    public ParticleSystem dashEffectRight;
+    public ParticleSystem dashEffectLeft;
+    public ParticleSystem damageParticles;
 
     [Header("UI Colors")]
     public Color highJumpColor = Color.yellow;
@@ -179,7 +182,20 @@ public class SlimeController : MonoBehaviour {
         rb.velocity = new Vector2((isFacingRight ? 1 : -1) * dashForce, 0f);
         AudioManager.instance.PlayDashSound();
 
+        // ===== LOGIC MỚI: CHỌN HIỆU ỨNG ĐÚNG HƯỚNG =====
+        if (isFacingRight)
+        {
+            if (dashEffectRight != null) dashEffectRight.Play();
+        } else
+        {
+            if (dashEffectLeft != null) dashEffectLeft.Play();
+        }
+
         yield return new WaitForSeconds(dashDuration);
+
+        // Dừng cả hai để chắc chắn
+        if (dashEffectRight != null) dashEffectRight.Stop();
+        if (dashEffectLeft != null) dashEffectLeft.Stop();
 
         rb.gravityScale = originalGravity;
         ChangeState(PlayerState.Falling);
@@ -187,6 +203,12 @@ public class SlimeController : MonoBehaviour {
 
     public void TakeDamage(int damage, Transform damageSource) {
         if (isInvincible || currentState == PlayerState.Dead) return;
+
+        // KÍCH HOẠT HIỆU ỨNG HẠT "MÁU" VĂNG RA
+        if (damageParticles != null)
+        {
+            damageParticles.Play();
+        }
 
         currentHealth -= damage;
         uiManager.UpdateHealth(currentHealth);
@@ -290,4 +312,5 @@ public class SlimeController : MonoBehaviour {
             }
         }
     }
+
 }
