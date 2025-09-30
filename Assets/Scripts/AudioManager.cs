@@ -15,6 +15,7 @@ public class AudioManager : MonoBehaviour {
     public AudioClip absorbSound;
     public AudioClip getKeySound;
     public AudioClip dieSound;
+    public AudioClip playerShootSound;
 
     private void Awake() {
         // Thiết lập Singleton
@@ -72,6 +73,12 @@ public class AudioManager : MonoBehaviour {
         if (dieSound != null)
         {
             audioSource.PlayOneShot(dieSound);
+        }
+    }
+    public void PlayPlayerShootSound() {
+        if (playerShootSound != null)
+        {
+            audioSource.PlayOneShot(playerShootSound);
         }
     }
 }

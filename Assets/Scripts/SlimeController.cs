@@ -17,6 +17,11 @@ public class SlimeController : MonoBehaviour {
     public float wallSlidingSpeed = 2f;
     public Vector2 wallJumpForce = new Vector2(8f, 12f);
 
+    [Header("Shoot Ability")] 
+    public GameObject playerProjectilePrefab; // Prefab viên đạn của Slime
+    public Transform playerFirePoint;         // Vị trí Slime bắn đạn ra
+    public float playerFireRate = 0.5f;       // Tốc độ bắn của Slime
+
     [Header("Combat Stats")]
     public int maxHealth = 3;
     public Vector2 knockbackForce = new Vector2(5f, 5f);
@@ -45,6 +50,7 @@ public class SlimeController : MonoBehaviour {
     private GameManager gameManager;
     private float horizontalInput;
     private int currentHealth;
+    private float nextFireTime; // Thời gian có thể bắn tiếp
 
     // === HỆ THỐNG STATE MACHINE ===
     public enum PlayerState { Idle, Running, Jumping, Falling, WallSliding, Dashing, Knockback, Dead }
@@ -152,6 +158,13 @@ public class SlimeController : MonoBehaviour {
         {
             StartCoroutine(DashCoroutine());
         }
+        if (Input.GetButtonDown("Fire1") && HasAbility(AbilityType.Shoot) && Time.time >= nextFireTime)
+        {
+            // Bắn đạn
+            Shoot();
+            // Đặt lại thời gian có thể bắn tiếp
+            nextFireTime = Time.time + playerFireRate;
+        }
     }
 
     private void ChangeState(PlayerState newState) {
@@ -173,7 +186,22 @@ public class SlimeController : MonoBehaviour {
         if (jumpEffect != null) jumpEffect.Play();
         AudioManager.instance.PlayJumpSound();
     }
+    private void Shoot() {
+        if (playerProjectilePrefab == null || playerFirePoint == null) return;
 
+        // Tạo ra viên đạn tại vị trí FirePoint của Slime
+        GameObject newProjectile = Instantiate(playerProjectilePrefab, playerFirePoint.position, Quaternion.identity);
+
+        // Điều chỉnh hướng của viên đạn dựa vào hướng mặt của Slime
+        if (!isFacingRight)
+        {
+            // Nếu Slime quay trái, lật viên đạn lại
+            newProjectile.transform.localScale = new Vector3(-newProjectile.transform.localScale.x, newProjectile.transform.localScale.y, newProjectile.transform.localScale.z);
+        }
+
+        // Chơi âm thanh bắn
+        AudioManager.instance.PlayPlayerShootSound();
+    }
     private IEnumerator DashCoroutine() {
         ChangeState(PlayerState.Dashing);
         canAirDash = false;

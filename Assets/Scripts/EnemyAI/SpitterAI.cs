@@ -31,6 +31,7 @@ public class SpitterAI : MonoBehaviour {
 
         // 3. Tạo ra viên đạn
         // Quaternion.Euler(0, 0, angle) là cách tạo ra một góc quay trong không gian 2D
-        Instantiate(projectilePrefab, firePoint.position, Quaternion.Euler(0, 0, angle));
+        GameObject newProjectile = Instantiate(projectilePrefab, firePoint.position, Quaternion.Euler(0, 0, angle));
+        newProjectile.GetComponent<Projectile>().owner = Projectile.ProjectileOwner.Enemy; 
     }
 }

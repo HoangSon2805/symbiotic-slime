@@ -2,28 +2,58 @@
 
 public class Projectile : MonoBehaviour {
     public float speed = 10f;
-    public float lifetime = 2f; // Đạn sẽ tự hủy sau 2 giây
+    public float lifetime = 2f;
+    public enum ProjectileOwner { Player, Enemy }
+    public ProjectileOwner owner;
+    public int damage = 1; // Sát thương của viên đạn
 
     void Start() {
-        // Lấy component Rigidbody2D
         Rigidbody2D rb = GetComponent<Rigidbody2D>();
-        // Bắn viên đạn đi theo hướng "phía trước" của nó (trục X màu xanh dương)
         rb.velocity = transform.right * speed;
-
-        // Hẹn giờ tự hủy
         Destroy(gameObject, lifetime);
     }
 
-    // Xử lý khi đạn va chạm
     private void OnTriggerEnter2D(Collider2D other) {
-        // NẾU VA CHẠM VỚI VẬT THỂ CÓ TAG "ENEMY" -> BỎ QUA, KHÔNG LÀM GÌ CẢ
-        if (other.CompareTag("Enemy"))
+        // Nếu viên đạn là của Player
+        if (owner == ProjectileOwner.Player)
         {
-            return; // Dừng hàm tại đây, cho phép viên đạn bay xuyên qua
+            // Nếu chạm vào Enemy -> Gây sát thương cho Enemy
+            if (other.CompareTag("Enemy"))
+            {
+                // (Sau này sẽ thêm script cho Enemy để chúng có máu)
+                // Tạm thời, chúng ta sẽ chỉ hủy kẻ thù
+                Destroy(other.gameObject);
+                Destroy(gameObject); // Hủy viên đạn
+                return;
+            }
+            // Nếu chạm vào Player -> Bỏ qua (đạn của mình không tự làm mình bị thương)
+            if (other.CompareTag("Player"))
+            {
+                return;
+            }
+        }
+        // Nếu viên đạn là của Enemy
+        else if (owner == ProjectileOwner.Enemy)
+        {
+            // Nếu chạm vào Enemy -> Bỏ qua (đạn của kẻ thù không làm tổn thương kẻ thù khác)
+            if (other.CompareTag("Enemy"))
+            {
+                return;
+            }
+            // Nếu chạm vào Player -> Gây sát thương cho Player
+            if (other.CompareTag("Player"))
+            {
+                SlimeController player = other.GetComponent<SlimeController>();
+                if (player != null)
+                {
+                    player.TakeDamage(damage, transform);
+                }
+                Destroy(gameObject); // Hủy viên đạn
+                return;
+            }
         }
 
-        // Nếu va chạm với bất cứ thứ gì khác (ví dụ: Player, Ground...)
-        // thì mới tự hủy
+        // Trong mọi trường hợp khác (chạm đất, tường...)
         Destroy(gameObject);
     }
 }
