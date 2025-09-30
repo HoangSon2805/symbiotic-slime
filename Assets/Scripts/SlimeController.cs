@@ -188,16 +188,23 @@ public class SlimeController : MonoBehaviour {
 
 
     private void OnCollisionEnter2D(Collision2D collision) {
-        // ... Hàm này giữ nguyên ...
+        // Kiểm tra xem có va chạm với vật thể có tag "Enemy" không
         if (collision.gameObject.CompareTag("Enemy"))
         {
+            // Kiểm tra xem Slime có đang rơi xuống (đạp lên đầu) không
+            // collision.contacts[0].normal.y > 0.5f nghĩa là điểm va chạm nằm ở phía dưới Slime
             if (collision.contacts[0].normal.y > 0.5f)
             {
+                // Nếu đạp lên đầu, hấp thụ năng lực như cũ
                 AbilityGrant abilityGrant = collision.gameObject.GetComponent<AbilityGrant>();
                 if (abilityGrant != null)
                 {
                     Absorb(abilityGrant.abilityToGrant, collision.gameObject);
                 }
+            } else
+            {
+                // NẾU VA CHẠM TỪ BÊN HÔNG HOẶC TỪ DƯỚI LÊN -> MẤT MÁU
+                TakeDamage(1);
             }
         }
     }
