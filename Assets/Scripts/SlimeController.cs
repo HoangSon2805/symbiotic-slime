@@ -163,6 +163,7 @@ public class SlimeController : MonoBehaviour {
             }
             rb.velocity = new Vector2(rb.velocity.x, currentJumpForce);
         }
+        AudioManager.instance.PlayJumpSound();
         HandleSquashAndStretch(1.2f, 0.8f);
     }
 
@@ -179,6 +180,7 @@ public class SlimeController : MonoBehaviour {
 
     IEnumerator DashCoroutine() {
         // ===== LOGIC MỚI: TIÊU HAO LƯỢT LƯỚT TRÊN KHÔNG =====
+        AudioManager.instance.PlayDashSound();
         if (!isGrounded)
         {
             canAirDash = false; // Dùng mất lượt lướt trên không
@@ -196,7 +198,28 @@ public class SlimeController : MonoBehaviour {
         isDashing = false;
     }
 
+    private void OnTriggerEnter2D(Collider2D other) {
+        if (other.CompareTag("Hazard"))
+        {
+            TakeDamage(1);
+            if (!isKnockedBack)
+            {
+                StartCoroutine(KnockbackCoroutine(other.transform));
+            }
+        }
+        // THÊM LOGIC MỚI
+        else if (other.CompareTag("Key"))
+        {
+            // Tìm GameManager và báo là đã nhặt chìa khóa
+            GameManager gameManager = FindObjectOfType<GameManager>();
+            gameManager.hasKey = true;
+            AudioManager.instance.PlayGetKeySound();
+            // Hủy object chìa khóa đi
+            Destroy(other.gameObject);
 
+            Debug.Log("Đã nhặt được chìa khóa!");
+        }
+    }
     private void OnCollisionEnter2D(Collision2D collision) {
         // Kiểm tra xem có va chạm với vật thể có tag "Enemy" không
         if (collision.gameObject.CompareTag("Enemy"))
@@ -244,7 +267,7 @@ public class SlimeController : MonoBehaviour {
     void Absorb(AbilityType ability, GameObject enemy) {
         Debug.Log("Hấp thụ năng lực: " + ability.ToString());
         Destroy(enemy);
-
+        AudioManager.instance.PlayAbsorbSound();
         if (!HasAbility(ability))
         {
             unlockedAbilities.Add(ability);
@@ -298,33 +321,12 @@ public class SlimeController : MonoBehaviour {
         }
         transform.localScale = finalOriginalScale;
     }
-    private void OnTriggerEnter2D(Collider2D other) {
-        if (other.CompareTag("Hazard"))
-        {
-            TakeDamage(1);
-            if (!isKnockedBack)
-            {
-                StartCoroutine(KnockbackCoroutine(other.transform));
-            }
-        }
-        // THÊM LOGIC MỚI
-        else if (other.CompareTag("Key"))
-        {
-            // Tìm GameManager và báo là đã nhặt chìa khóa
-            GameManager gameManager = FindObjectOfType<GameManager>();
-            gameManager.hasKey = true;
-
-            // Hủy object chìa khóa đi
-            Destroy(other.gameObject);
-
-            Debug.Log("Đã nhặt được chìa khóa!");
-        }
-    }
+    
 
     public void TakeDamage(int damage) {
         // Tự kiểm tra trạng thái bất tử bên trong
         if (isInvincible) return;
-
+        AudioManager.instance.PlayTakeDamageSound();
         currentHealth -= damage;
         uiManager.UpdateHealth(currentHealth);
 

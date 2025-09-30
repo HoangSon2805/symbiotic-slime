@@ -17,7 +17,7 @@ public class GameManager : MonoBehaviour {
     // Đây là chuỗi hành động hồi sinh
     private IEnumerator RespawnCoroutine(GameObject player) {
         Debug.Log("Slime đã 'chết'!");
-
+        AudioManager.instance.PlayDieSound();
         // 1. Vô hiệu hóa người chơi
 
         // Tắt script điều khiển để người chơi không di chuyển được nữa
