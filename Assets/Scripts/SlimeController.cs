@@ -3,405 +3,291 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class SlimeController : MonoBehaviour {
-    // Public variables
+    // === Các biến Public (để chỉnh trong Inspector) ===
+    [Header("Movement Stats")]
     public float moveSpeed = 5f;
-    public float jumpForce = 6f;
-    public float highJumpMultiplier = 1.5f;
+    public float jumpForce = 10f;
+
+    [Header("Dash Ability")]
     public float dashForce = 20f;
     public float dashDuration = 0.2f;
-    // ===== CÁC BIẾN MỚI CHO LEO TƯỜNG =====
-    public Transform wallCheck; // Điểm kiểm tra tường
-    public float wallSlidingSpeed = 2f; // Tốc độ trượt tường
-    public Vector2 wallJumpForce = new Vector2(8f, 12f); // Lực nhảy tường (ngang, dọc)
 
+    [Header("Wall Ability")]
+    public Transform wallCheck;
+    public float wallSlidingSpeed = 2f;
+    public Vector2 wallJumpForce = new Vector2(8f, 12f);
+
+    [Header("Combat Stats")]
+    public int maxHealth = 3;
+    public Vector2 knockbackForce = new Vector2(5f, 5f);
+    public float invincibilityDuration = 1f;
+    public float highJumpMultiplier = 1.5f;
+
+    [Header("Checks & Layers")]
     public Transform groundCheck;
     public LayerMask groundLayer;
+
+    [Header("Effects")]
+    public ParticleSystem jumpEffect;
+
+    [Header("UI Colors")]
     public Color highJumpColor = Color.yellow;
     public Color dashColor = Color.cyan;
-    public Color wallClimbColor = Color.green; // Màu cho năng lực leo tường
-    public float squashSpeed = 10f;
-    public float invincibilityDuration = 1f; // Thời gian bất tử sau khi bị thương
-    public int maxHealth = 3; // Máu tối đa
+    public Color wallClimbColor = Color.green;
 
-    public Vector2 knockbackForce = new Vector2(5f, 5f); // Lực đẩy (ngang, dọc)
-    private bool isKnockedBack = false;
-
-    private int currentHealth; // Máu hiện tại
-    // Private variables
+    // === Các biến Private (trạng thái và tham chiếu) ===
     private Rigidbody2D rb;
     private SpriteRenderer spriteRenderer;
-    private float horizontalInput;
-    private bool isGrounded;
-    private bool isDashing = false;
-    private Vector3 originalScale;
-    private bool wasGrounded;
-    private Coroutine squashCoroutine;
-
-    // ===== CÁC BIẾN MỚI CHO LEO TƯỜNG =====
-    private bool isTouchingWall;
-    private bool isWallSliding;
-    private bool canWallJump;
-    // ===== BIẾN MỚI ĐỂ QUẢN LÝ LƯỚT TRÊN KHÔNG =====
-    private bool canAirDash;
-
-    // ===== BIẾN MỚI ĐỂ XỬ LÝ QUAY MẶT =====
-    private bool isFacingRight = true;
-
-    //UI
     private UIManager uiManager;
+    private GameManager gameManager;
+    private float horizontalInput;
+    private int currentHealth;
+
+    // === HỆ THỐNG STATE MACHINE ===
+    public enum PlayerState { Idle, Running, Jumping, Falling, WallSliding, Dashing, Knockback, Dead }
+    private PlayerState currentState;
+
+    // Các biến kiểm tra trạng thái
+    private bool isGrounded;
+    private bool isTouchingWall;
+    private bool isFacingRight = true;
+    private bool isInvincible = false;
+    private bool canAirDash;
 
     // Hệ thống năng lực
     private List<AbilityType> unlockedAbilities = new List<AbilityType>();
 
-    
-    private bool isInvincible = false; // Cờ để kiểm tra trạng thái bất tử
-
     void Start() {
         rb = GetComponent<Rigidbody2D>();
         spriteRenderer = GetComponent<SpriteRenderer>();
-        originalScale = transform.localScale;
-        //thêm máu
-        currentHealth = maxHealth; // Bắt đầu game với đầy máu
-        Debug.Log("Máu của Slime: " + currentHealth);
-
         uiManager = FindObjectOfType<UIManager>();
-        // Cập nhật UI lần đầu khi game bắt đầu
-        uiManager.UpdateHealth(currentHealth);
+        gameManager = FindObjectOfType<GameManager>();
+        HealToFull();
     }
 
     void Update() {
-        if (isDashing || isKnockedBack) return;
+        if (currentState == PlayerState.Dead) return;
 
+        // 1. LUÔN LUÔN KIỂM TRA MÔI TRƯỜNG & INPUT
         horizontalInput = Input.GetAxisRaw("Horizontal");
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, 0.2f, groundLayer);
         isTouchingWall = Physics2D.OverlapCircle(wallCheck.position, 0.2f, groundLayer);
 
-        // Xác định "cơ hội" nhảy tường
-        if (HasAbility(AbilityType.WallClimb) && isTouchingWall && !isGrounded)
+        // 2. XỬ LÝ QUAY MẶT (FLIP)
+        if (currentState != PlayerState.WallSliding && currentState != PlayerState.Dashing && currentState != PlayerState.Knockback)
         {
-            canWallJump = true;
-        } else
-        {
-            canWallJump = false;
+            if (horizontalInput < 0 && isFacingRight) Flip();
+            else if (horizontalInput > 0 && !isFacingRight) Flip();
         }
 
-        // Xác định trạng thái trượt tường
-        isWallSliding = canWallJump && ((isFacingRight && horizontalInput > 0) || (!isFacingRight && horizontalInput < 0));
+        // 3. BỘ NÃO STATE MACHINE
+        UpdateState();
 
-        // ===== LOGIC HỒI LƯỚT ĐÃ CẬP NHẬT =====
-        // Hồi lại cú lướt khi CHẠM ĐẤT hoặc KHI CÓ THỂ NHẢY TƯỜNG
-        if (isGrounded || canWallJump)
-        {
-            canAirDash = true;
-        }
-
-        // Xử lý nhảy
-        if (Input.GetButtonDown("Jump"))
-        {
-            if (canWallJump)
-            {
-                Jump(true);
-            } else if (isGrounded)
-            {
-                Jump(false);
-            }
-        }
-
-        // Xử lý lướt
-        if (Input.GetKeyDown(KeyCode.LeftShift) && HasAbility(AbilityType.Dash) && (isGrounded || canAirDash))
-        {
-            StartCoroutine(DashCoroutine());
-        }
-
-        if (isGrounded && !wasGrounded)
-        {
-            HandleSquashAndStretch(0.8f, 1.2f);
-        }
-        wasGrounded = isGrounded;
+        // 4. XỬ LÝ CÁC HÀNH ĐỘNG TỨC THỜI (INPUT)
+        HandleInput();
     }
 
-    void FixedUpdate() {
-        
-        // KHÔNG LÀM GÌ CẢ nếu đang lướt hoặc đang bị đẩy lùi
-        if (isDashing || isKnockedBack) return;
+    private void UpdateState() {
+        if (currentState == PlayerState.Dashing || currentState == PlayerState.Knockback || currentState == PlayerState.Dead) return;
 
-        rb.velocity = new Vector2(horizontalInput * moveSpeed, rb.velocity.y);
-        // Chỉ áp dụng hiệu ứng trượt khi isWallSliding là true
-        if (isWallSliding)
+        if (isTouchingWall && !isGrounded && rb.velocity.y < 0 && HasAbility(AbilityType.WallClimb) && horizontalInput != 0)
+        {
+            ChangeState(PlayerState.WallSliding);
+        } else if (rb.velocity.y < -0.1f && !isGrounded)
+        {
+            ChangeState(PlayerState.Falling);
+        } else if (rb.velocity.y > 0.1f && !isGrounded)
+        {
+            ChangeState(PlayerState.Jumping);
+        } else if (isGrounded && Mathf.Abs(horizontalInput) > 0.1f)
+        {
+            ChangeState(PlayerState.Running);
+        } else if (isGrounded && Mathf.Abs(horizontalInput) < 0.1f)
+        {
+            ChangeState(PlayerState.Idle);
+        }
+    }
+
+    private void FixedUpdate() {
+        if (currentState == PlayerState.Dead || currentState == PlayerState.Dashing || currentState == PlayerState.Knockback) return;
+
+        if (currentState == PlayerState.WallSliding)
         {
             rb.velocity = new Vector2(rb.velocity.x, Mathf.Clamp(rb.velocity.y, -wallSlidingSpeed, float.MaxValue));
         } else
         {
             rb.velocity = new Vector2(horizontalInput * moveSpeed, rb.velocity.y);
         }
+    }
 
-        if (!isWallSliding)
+    private void HandleInput() {
+        // Hồi lại cú lướt khi chạm đất hoặc tường
+        if (isGrounded || currentState == PlayerState.WallSliding)
         {
-            if (horizontalInput < 0 && isFacingRight)
+            canAirDash = true;
+        }
+
+        // ===== LOGIC NHẢY ĐÃ ĐƯỢC CẢI TIẾN =====
+        if (Input.GetButtonDown("Jump"))
+        {
+            // ƯU TIÊN 1: Nhảy Tường
+            // Nếu đang chạm tường, không trên mặt đất, và có kỹ năng -> Nhảy tường ngay!
+            if (isTouchingWall && !isGrounded && HasAbility(AbilityType.WallClimb))
             {
-                Flip();
-            } else if (horizontalInput > 0 && !isFacingRight)
-            {
-                Flip();
+                WallJump();
             }
+            // ƯU TIÊN 2: Nhảy Thường
+            // Nếu không thể nhảy tường, thì kiểm tra xem có trên mặt đất không để nhảy thường
+            else if (isGrounded)
+            {
+                Jump();
+            }
+        }
+
+        // Lướt (logic giữ nguyên)
+        if (Input.GetKeyDown(KeyCode.LeftShift) && HasAbility(AbilityType.Dash) && canAirDash)
+        {
+            StartCoroutine(DashCoroutine());
         }
     }
-    // ===== HÀM JUMP ĐÃ ĐƯỢC CẢI TIẾN =====
-    void Jump(bool isWallJumping) {
-        if (isWallJumping)
-        {
-            // Cú nhảy tường LUÔN đẩy ra xa và lật người lại.
-            // Điều này tạo ra cảm giác dứt khoát và có kiểm soát.
-            rb.velocity = new Vector2(wallJumpForce.x * (isFacingRight ? -1 : 1), wallJumpForce.y);
-            Flip();
-        } else
-        {
-            float currentJumpForce = jumpForce;
-            if (HasAbility(AbilityType.HighJump))
-            {
-                currentJumpForce *= highJumpMultiplier;
-            }
-            rb.velocity = new Vector2(rb.velocity.x, currentJumpForce);
-        }
+
+    private void ChangeState(PlayerState newState) {
+        if (newState == currentState) return;
+        currentState = newState;
+    }
+
+    // === CÁC HÀM HÀNH ĐỘNG ===
+    private void Jump() {
+        float currentJumpForce = jumpForce * (HasAbility(AbilityType.HighJump) ? highJumpMultiplier : 1f);
+        rb.velocity = new Vector2(rb.velocity.x, currentJumpForce);
+        if (jumpEffect != null) jumpEffect.Play();
         AudioManager.instance.PlayJumpSound();
-        HandleSquashAndStretch(1.2f, 0.8f);
     }
 
-
-    // ===== HÀM QUAY MẶT MỚI =====
-    void Flip() {
-        isFacingRight = !isFacingRight;
-        Vector3 newScale = transform.localScale;
-        newScale.x *= -1; // Lật scale theo trục X
-        transform.localScale = newScale;
+    private void WallJump() {
+        rb.velocity = new Vector2(wallJumpForce.x * (isFacingRight ? -1 : 1), wallJumpForce.y);
+        Flip();
+        if (jumpEffect != null) jumpEffect.Play();
+        AudioManager.instance.PlayJumpSound();
     }
 
-
-
-    IEnumerator DashCoroutine() {
-        // ===== LOGIC MỚI: TIÊU HAO LƯỢT LƯỚT TRÊN KHÔNG =====
-        AudioManager.instance.PlayDashSound();
-        if (!isGrounded)
-        {
-            canAirDash = false; // Dùng mất lượt lướt trên không
-        }
-
-        isDashing = true;
+    private IEnumerator DashCoroutine() {
+        ChangeState(PlayerState.Dashing);
+        canAirDash = false;
         float originalGravity = rb.gravityScale;
         rb.gravityScale = 0f;
-        float dashDirection = isFacingRight ? 1 : -1;
-        rb.velocity = new Vector2(dashDirection * dashForce, 0f);
+        rb.velocity = new Vector2((isFacingRight ? 1 : -1) * dashForce, 0f);
+        AudioManager.instance.PlayDashSound();
 
         yield return new WaitForSeconds(dashDuration);
 
         rb.gravityScale = originalGravity;
-        isDashing = false;
+        ChangeState(PlayerState.Falling);
     }
 
-    private void OnTriggerEnter2D(Collider2D other) {
-        if (other.CompareTag("Hazard"))
-        {
-            TakeDamage(1);
-            if (!isKnockedBack)
-            {
-                StartCoroutine(KnockbackCoroutine(other.transform));
-            }
-        }
-        // THÊM LOGIC MỚI
-        else if (other.CompareTag("Key"))
-        {
-            // Tìm GameManager và báo là đã nhặt chìa khóa
-            GameManager gameManager = FindObjectOfType<GameManager>();
-            gameManager.hasKey = true;
-            AudioManager.instance.PlayGetKeySound();
-            // Hủy object chìa khóa đi
-            Destroy(other.gameObject);
+    public void TakeDamage(int damage, Transform damageSource) {
+        if (isInvincible || currentState == PlayerState.Dead) return;
 
-            Debug.Log("Đã nhặt được chìa khóa!");
+        currentHealth -= damage;
+        uiManager.UpdateHealth(currentHealth);
+        AudioManager.instance.PlayTakeDamageSound();
+
+        if (currentHealth <= 0)
+        {
+            ChangeState(PlayerState.Dead);
+            gameManager.StartRespawn(this.gameObject);
+        } else
+        {
+            StartCoroutine(InvincibilityCoroutine());
+            StartCoroutine(KnockbackCoroutine(damageSource));
         }
     }
-    private void OnCollisionEnter2D(Collision2D collision) {
-        // Kiểm tra xem có va chạm với vật thể có tag "Enemy" không
-        if (collision.gameObject.CompareTag("Enemy"))
-        {
-            // Kiểm tra xem Slime có đang rơi xuống (đạp lên đầu) không
-            // collision.contacts[0].normal.y > 0.5f nghĩa là điểm va chạm nằm ở phía dưới Slime
-            if (collision.contacts[0].normal.y > 0.5f)
-            {
-                // Nếu đạp lên đầu, hấp thụ năng lực như cũ
-                AbilityGrant abilityGrant = collision.gameObject.GetComponent<AbilityGrant>();
-                if (abilityGrant != null)
-                {
-                    Absorb(abilityGrant.abilityToGrant, collision.gameObject);
-                }
-            } else // Va chạm từ bên hông
-            {
-                // 1. Gây sát thương (hàm TakeDamage sẽ tự kiểm tra bất tử)
-                TakeDamage(1);
 
-                // 2. Luôn kích hoạt Knockback NẾU không đang bị đẩy lùi
-                // Điều này độc lập với việc có bị mất máu hay không
-                if (!isKnockedBack)
-                {
-                    StartCoroutine(KnockbackCoroutine(collision.transform));
-                }
-            }
-        } else if (collision.gameObject.CompareTag("Door"))
-        {
-            // Tìm GameManager để kiểm tra xem có chìa khóa chưa
-            GameManager gameManager = FindObjectOfType<GameManager>();
-            if (gameManager.hasKey)
-            {
-                // Nếu có chìa khóa, hủy cánh cửa đi (mở cửa)
-                Destroy(collision.gameObject);
-                Debug.Log("Mở cửa thành công! Bạn đã thắng!");
-                // (Sau này chúng ta sẽ chuyển sang màn chơi tiếp theo ở đây)
-            } else
-            {
-                Debug.Log("Cửa đã khóa! Cần tìm chìa khóa.");
-            }
-        }
-
+    private IEnumerator KnockbackCoroutine(Transform damageSource) {
+        ChangeState(PlayerState.Knockback);
+        Vector2 knockbackDirection = (transform.position - damageSource.position).normalized;
+        rb.velocity = new Vector2(knockbackDirection.x * knockbackForce.x, knockbackDirection.y * knockbackForce.y);
+        yield return new WaitForSeconds(0.3f);
+        ChangeState(PlayerState.Falling);
     }
 
-    void Absorb(AbilityType ability, GameObject enemy) {
+    private IEnumerator InvincibilityCoroutine() {
+        isInvincible = true;
+        for (float i = 0; i < invincibilityDuration; i += 0.1f)
+        {
+            spriteRenderer.enabled = !spriteRenderer.enabled;
+            yield return new WaitForSeconds(0.1f);
+        }
+        spriteRenderer.enabled = true;
+        isInvincible = false;
+    }
+
+    private void Flip() {
+        isFacingRight = !isFacingRight;
+        transform.Rotate(0f, 180f, 0f);
+    }
+
+    public void HealToFull() {
+        currentHealth = maxHealth;
+        isInvincible = false;
+        ChangeState(PlayerState.Idle); // Reset trạng thái khi hồi sinh
+        if (uiManager != null)
+        {
+            uiManager.UpdateHealth(currentHealth);
+        }
+    }
+
+    private void Absorb(AbilityType ability, GameObject enemy) {
         Debug.Log("Hấp thụ năng lực: " + ability.ToString());
         Destroy(enemy);
         AudioManager.instance.PlayAbsorbSound();
+
         if (!HasAbility(ability))
         {
             unlockedAbilities.Add(ability);
 
             if (ability == AbilityType.HighJump) spriteRenderer.color = highJumpColor;
             if (ability == AbilityType.Dash) spriteRenderer.color = dashColor;
-            if (ability == AbilityType.WallClimb) spriteRenderer.color = wallClimbColor; // <-- THÊM MỚI
+            if (ability == AbilityType.WallClimb) spriteRenderer.color = wallClimbColor;
         }
     }
 
-    bool HasAbility(AbilityType ability) {
+    private bool HasAbility(AbilityType ability) {
         return unlockedAbilities.Contains(ability);
     }
 
-    void HandleSquashAndStretch(float yScale, float xScale) {
-        // ... Hàm này giữ nguyên ...
-        if (squashCoroutine != null)
+    private void OnTriggerEnter2D(Collider2D other) {
+        if (other.CompareTag("Hazard"))
         {
-            StopCoroutine(squashCoroutine);
+            TakeDamage(1, other.transform);
+        } else if (other.CompareTag("Key"))
+        {
+            gameManager.hasKey = true;
+            AudioManager.instance.PlayGetKeySound();
+            Destroy(other.gameObject);
         }
-        squashCoroutine = StartCoroutine(SquashAndStretchCoroutine(yScale, xScale));
     }
 
-    IEnumerator SquashAndStretchCoroutine(float yScale, float xScale) {
-        // ... Hàm này giữ nguyên ...
-        Vector3 targetScale = new Vector3(originalScale.x * Mathf.Abs(transform.localScale.x) * xScale, originalScale.y * yScale, originalScale.z);
-        // Chỉnh lại một chút để nó không bị lỗi khi scale đang âm
-        targetScale.x = originalScale.x * (isFacingRight ? 1 : -1) * xScale;
-
-        Vector3 currentScale = transform.localScale;
-        Vector3 startScaleForLerp = currentScale;
-
-        float t = 0;
-        while (t < 1.0f)
+    private void OnCollisionEnter2D(Collision2D collision) {
+        if (collision.gameObject.CompareTag("Enemy"))
         {
-            t += Time.deltaTime * squashSpeed;
-            transform.localScale = Vector3.Lerp(startScaleForLerp, targetScale, t);
-            yield return null;
-        }
-        transform.localScale = targetScale;
-
-        t = 0;
-        startScaleForLerp = transform.localScale;
-        Vector3 finalOriginalScale = new Vector3(originalScale.x * (isFacingRight ? 1 : -1), originalScale.y, originalScale.z);
-
-        while (t < 1.0f)
-        {
-            t += Time.deltaTime * squashSpeed;
-            transform.localScale = Vector3.Lerp(startScaleForLerp, finalOriginalScale, t);
-            yield return null;
-        }
-        transform.localScale = finalOriginalScale;
-    }
-    
-
-    public void TakeDamage(int damage) {
-        // Tự kiểm tra trạng thái bất tử bên trong
-        if (isInvincible) return;
-        AudioManager.instance.PlayTakeDamageSound();
-        currentHealth -= damage;
-        uiManager.UpdateHealth(currentHealth);
-
-        // Bắt đầu coroutine bất tử
-        StartCoroutine(InvincibilityCoroutine());
-
-        if (currentHealth <= 0)
-        {
-            GameManager gameManager = FindObjectOfType<GameManager>();
-            if (gameManager != null)
+            if (collision.contacts[0].normal.y > 0.5f)
             {
-                gameManager.StartRespawn(this.gameObject);
+                AbilityGrant abilityGrant = collision.gameObject.GetComponent<AbilityGrant>();
+                if (abilityGrant != null)
+                {
+                    Absorb(abilityGrant.abilityToGrant, collision.gameObject);
+                }
+            } else
+            {
+                TakeDamage(1, collision.transform);
+            }
+        } else if (collision.gameObject.CompareTag("Door"))
+        {
+            if (gameManager.hasKey)
+            {
+                Destroy(collision.gameObject);
             }
         }
-    }
-
-    private IEnumerator KnockbackCoroutine(Transform damageSource) {
-        isKnockedBack = true; // BẮT ĐẦU trạng thái bị đẩy lùi, khóa điều khiển
-
-        // Tính toán hướng đẩy lùi
-        Vector2 knockbackDirection = (transform.position - damageSource.position).normalized;
-        if (knockbackDirection.y < 0.1f)
-        {
-            knockbackDirection.y = 0.1f;
-        }
-
-        // Tác động lực đẩy
-        rb.velocity = new Vector2(knockbackDirection.x * knockbackForce.x, knockbackDirection.y * knockbackForce.y);
-
-        // Đợi một chút để lực đẩy có hiệu lực
-        yield return new WaitForSeconds(0.2f);
-
-        isKnockedBack = false; // KẾT THÚC trạng thái bị đẩy lùi, trả lại điều khiển
-    }
-
-    private IEnumerator InvincibilityCoroutine() {
-        Debug.Log("Slime đã trở nên bất tử!");
-        isInvincible = true;
-
-        // Hiệu ứng nhấp nháy
-        // Chúng ta sẽ bật tắt SpriteRenderer 5 lần trong 1 giây
-        for (float i = 0; i < invincibilityDuration; i += 0.2f)
-        {
-            // Nếu sprite đang hiện thì ẩn nó đi
-            if (spriteRenderer.enabled)
-            {
-                spriteRenderer.enabled = false;
-            }
-            // Nếu sprite đang ẩn thì hiện nó lên
-            else
-            {
-                spriteRenderer.enabled = true;
-            }
-            // Đợi 0.1 giây
-            yield return new WaitForSeconds(0.1f);
-        }
-
-        // Đảm bảo sau khi kết thúc, sprite luôn hiện lên
-        spriteRenderer.enabled = true;
-        isInvincible = false;
-        Debug.Log("Slime không còn bất tử!");
-    }
-    public void HealToFull() {
-        currentHealth = maxHealth;
-
-        // ===== 2 DÒNG NÀY ĐỂ RESET TRẠNG THÁI =====
-        isInvincible = false;
-        isKnockedBack = false;
-
-        // Cập nhật lại UI để hiển thị đầy máu
-        if (uiManager != null) // Thêm kiểm tra để tránh lỗi khi game mới bắt đầu
-        {
-            uiManager.UpdateHealth(currentHealth);
-        }
-
-        Debug.Log("Máu đã được hồi đầy và trạng thái đã được reset!");
     }
 }
