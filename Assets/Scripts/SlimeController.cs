@@ -5,14 +5,20 @@ using UnityEngine;
 public class SlimeController : MonoBehaviour {
     // Public variables
     public float moveSpeed = 5f;
-    public float jumpForce = 10f;
+    public float jumpForce = 6f;
     public float highJumpMultiplier = 1.5f;
     public float dashForce = 20f;
     public float dashDuration = 0.2f;
+    // ===== CÁC BIẾN MỚI CHO LEO TƯỜNG =====
+    public Transform wallCheck; // Điểm kiểm tra tường
+    public float wallSlidingSpeed = 2f; // Tốc độ trượt tường
+    public Vector2 wallJumpForce = new Vector2(8f, 12f); // Lực nhảy tường (ngang, dọc)
+
     public Transform groundCheck;
     public LayerMask groundLayer;
     public Color highJumpColor = Color.yellow;
     public Color dashColor = Color.cyan;
+    public Color wallClimbColor = Color.green; // Màu cho năng lực leo tường
     public float squashSpeed = 10f;
 
     // Private variables
@@ -25,6 +31,10 @@ public class SlimeController : MonoBehaviour {
     private bool wasGrounded;
     private Coroutine squashCoroutine;
 
+    // ===== CÁC BIẾN MỚI CHO LEO TƯỜNG =====
+    private bool isTouchingWall;
+    private bool isWallSliding;
+    private bool canWallJump;
     // ===== BIẾN MỚI ĐỂ QUẢN LÝ LƯỚT TRÊN KHÔNG =====
     private bool canAirDash;
 
@@ -45,27 +55,45 @@ public class SlimeController : MonoBehaviour {
 
         horizontalInput = Input.GetAxisRaw("Horizontal");
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, 0.2f, groundLayer);
+        isTouchingWall = Physics2D.OverlapCircle(wallCheck.position, 0.2f, groundLayer);
 
-        // ===== LOGIC MỚI: HỒI LẠI CÚ LƯỚT KHI CHẠM ĐẤT =====
+        // ===== LOGIC MỚI =====
+        // 1. Xác định "cơ hội" nhảy tường
+        // Chỉ cần chạm tường và ở trên không là có thể nhảy tường
+        if (HasAbility(AbilityType.WallClimb) && isTouchingWall && !isGrounded)
+        {
+            canWallJump = true;
+        } else
+        {
+            canWallJump = false;
+        }
+
+        // 2. Xác định trạng thái "hiển thị" trượt tường
+        // Chỉ trượt khi người chơi chủ động ép vào tường
+        isWallSliding = canWallJump && ((isFacingRight && horizontalInput > 0) || (!isFacingRight && horizontalInput < 0));
+
         if (isGrounded)
         {
             canAirDash = true;
         }
 
-        // Xử lý nhảy
-        if (Input.GetButtonDown("Jump") && isGrounded)
+        // 3. Điều kiện nhảy tường giờ đây dựa vào "cơ hội"
+        if (Input.GetButtonDown("Jump"))
         {
-            Jump();
+            if (canWallJump) // <-- THAY ĐỔI Ở ĐÂY
+            {
+                Jump(true);
+            } else if (isGrounded)
+            {
+                Jump(false);
+            }
         }
 
-        // ===== LOGIC MỚI: KIỂM TRA ĐIỀU KIỆN LƯỚT =====
-        // Điều kiện: Có năng lực Lướt VÀ (đang trên mặt đất HOẶC còn lượt lướt trên không)
         if (Input.GetKeyDown(KeyCode.LeftShift) && HasAbility(AbilityType.Dash) && (isGrounded || canAirDash))
         {
             StartCoroutine(DashCoroutine());
         }
 
-        // Xử lý hiệu ứng tiếp đất
         if (isGrounded && !wasGrounded)
         {
             HandleSquashAndStretch(0.8f, 1.2f);
@@ -76,20 +104,46 @@ public class SlimeController : MonoBehaviour {
     void FixedUpdate() {
         if (isDashing) return;
 
-        rb.velocity = new Vector2(horizontalInput * moveSpeed, rb.velocity.y);
-
-        // ===== LOGIC QUAY MẶT MỚI =====
-        // Nếu đang đi sang trái và mặt đang quay phải -> quay mặt lại
-        if (horizontalInput < 0 && isFacingRight)
+        // Chỉ áp dụng hiệu ứng trượt khi isWallSliding là true
+        if (isWallSliding)
         {
-            Flip();
+            rb.velocity = new Vector2(rb.velocity.x, Mathf.Clamp(rb.velocity.y, -wallSlidingSpeed, float.MaxValue));
+        } else
+        {
+            rb.velocity = new Vector2(horizontalInput * moveSpeed, rb.velocity.y);
         }
-        // Nếu đang đi sang phải và mặt đang quay trái -> quay mặt lại
-        else if (horizontalInput > 0 && !isFacingRight)
+
+        if (!isWallSliding)
         {
-            Flip();
+            if (horizontalInput < 0 && isFacingRight)
+            {
+                Flip();
+            } else if (horizontalInput > 0 && !isFacingRight)
+            {
+                Flip();
+            }
         }
     }
+    // ===== HÀM JUMP ĐÃ ĐƯỢC CẢI TIẾN =====
+    void Jump(bool isWallJumping) {
+        if (isWallJumping)
+        {
+            // Cú nhảy tường LUÔN đẩy ra xa và lật người lại.
+            // Điều này tạo ra cảm giác dứt khoát và có kiểm soát.
+            rb.velocity = new Vector2(wallJumpForce.x * (isFacingRight ? -1 : 1), wallJumpForce.y);
+            Flip();
+        } else
+        {
+            float currentJumpForce = jumpForce;
+            if (HasAbility(AbilityType.HighJump))
+            {
+                currentJumpForce *= highJumpMultiplier;
+            }
+            rb.velocity = new Vector2(rb.velocity.x, currentJumpForce);
+        }
+        HandleSquashAndStretch(1.2f, 0.8f);
+    }
+
 
     // ===== HÀM QUAY MẶT MỚI =====
     void Flip() {
@@ -99,16 +153,7 @@ public class SlimeController : MonoBehaviour {
         transform.localScale = newScale;
     }
 
-    // ===== Các hàm xử lý chính (không thay đổi nhiều) =====
-    void Jump() {
-        float currentJumpForce = jumpForce;
-        if (HasAbility(AbilityType.HighJump))
-        {
-            currentJumpForce *= highJumpMultiplier;
-        }
-        rb.velocity = new Vector2(rb.velocity.x, currentJumpForce);
-        HandleSquashAndStretch(1.2f, 0.8f);
-    }
+ 
 
     IEnumerator DashCoroutine() {
         // ===== LOGIC MỚI: TIÊU HAO LƯỢT LƯỚT TRÊN KHÔNG =====
@@ -146,7 +191,6 @@ public class SlimeController : MonoBehaviour {
     }
 
     void Absorb(AbilityType ability, GameObject enemy) {
-        // ... Hàm này giữ nguyên ...
         Debug.Log("Hấp thụ năng lực: " + ability.ToString());
         Destroy(enemy);
 
@@ -156,6 +200,7 @@ public class SlimeController : MonoBehaviour {
 
             if (ability == AbilityType.HighJump) spriteRenderer.color = highJumpColor;
             if (ability == AbilityType.Dash) spriteRenderer.color = dashColor;
+            if (ability == AbilityType.WallClimb) spriteRenderer.color = wallClimbColor; // <-- THÊM MỚI
         }
     }
 
