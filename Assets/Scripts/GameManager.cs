@@ -6,6 +6,8 @@ public class GameManager : MonoBehaviour {
     public Transform respawnPoint;
     public float respawnDelay = 1f; // Thời gian chờ trước khi hồi sinh
     public CinemachineVirtualCamera virtualCamera;
+
+    public bool hasKey = false;
     // Hàm này sẽ được gọi từ SlimeController
     public void StartRespawn(GameObject player) {
         // Bắt đầu một chuỗi hành động có độ trễ

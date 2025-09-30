@@ -168,7 +168,7 @@ public class SlimeController : MonoBehaviour {
         transform.localScale = newScale;
     }
 
- 
+
 
     IEnumerator DashCoroutine() {
         // ===== LOGIC MỚI: TIÊU HAO LƯỢT LƯỚT TRÊN KHÔNG =====
@@ -209,7 +209,22 @@ public class SlimeController : MonoBehaviour {
                 // NẾU VA CHẠM TỪ BÊN HÔNG HOẶC TỪ DƯỚI LÊN -> MẤT MÁU
                 TakeDamage(1);
             }
+        } else if (collision.gameObject.CompareTag("Door"))
+        {
+            // Tìm GameManager để kiểm tra xem có chìa khóa chưa
+            GameManager gameManager = FindObjectOfType<GameManager>();
+            if (gameManager.hasKey)
+            {
+                // Nếu có chìa khóa, hủy cánh cửa đi (mở cửa)
+                Destroy(collision.gameObject);
+                Debug.Log("Mở cửa thành công! Bạn đã thắng!");
+                // (Sau này chúng ta sẽ chuyển sang màn chơi tiếp theo ở đây)
+            } else
+            {
+                Debug.Log("Cửa đã khóa! Cần tìm chìa khóa.");
+            }
         }
+
     }
 
     void Absorb(AbilityType ability, GameObject enemy) {
@@ -272,8 +287,19 @@ public class SlimeController : MonoBehaviour {
     private void OnTriggerEnter2D(Collider2D other) {
         if (other.CompareTag("Hazard"))
         {
-            // Bây giờ, khi chạm vào chông, Slime sẽ bị mất 1 máu
             TakeDamage(1);
+        }
+        // THÊM LOGIC MỚI
+        else if (other.CompareTag("Key"))
+        {
+            // Tìm GameManager và báo là đã nhặt chìa khóa
+            GameManager gameManager = FindObjectOfType<GameManager>();
+            gameManager.hasKey = true;
+
+            // Hủy object chìa khóa đi
+            Destroy(other.gameObject);
+
+            Debug.Log("Đã nhặt được chìa khóa!");
         }
     }
 
