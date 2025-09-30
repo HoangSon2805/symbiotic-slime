@@ -20,10 +20,13 @@ public class Projectile : MonoBehaviour {
             // Nếu chạm vào Enemy -> Gây sát thương cho Enemy
             if (other.CompareTag("Enemy"))
             {
-                // (Sau này sẽ thêm script cho Enemy để chúng có máu)
-                // Tạm thời, chúng ta sẽ chỉ hủy kẻ thù
-                Destroy(other.gameObject);
-                Destroy(gameObject); // Hủy viên đạn
+                Enemy enemy = other.GetComponent<Enemy>();
+                if (enemy != null)
+                {
+                    enemy.TakeDamage(damage);
+                }
+
+                Destroy(gameObject); // Hủy viên đạn sau khi trúng
                 return;
             }
             // Nếu chạm vào Player -> Bỏ qua (đạn của mình không tự làm mình bị thương)
