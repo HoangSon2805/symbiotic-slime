@@ -42,6 +42,7 @@ public class SlimeController : MonoBehaviour {
     public Color highJumpColor = Color.yellow;
     public Color dashColor = Color.cyan;
     public Color wallClimbColor = Color.green;
+    public Color doubleJumpColor = Color.magenta;
 
     // === Các biến Private (trạng thái và tham chiếu) ===
     private Rigidbody2D rb;
@@ -51,6 +52,7 @@ public class SlimeController : MonoBehaviour {
     private float horizontalInput;
     private int currentHealth;
     private float nextFireTime; // Thời gian có thể bắn tiếp
+    private bool canDoubleJump = false;
 
     // === HỆ THỐNG STATE MACHINE ===
     public enum PlayerState { Idle, Running, Jumping, Falling, WallSliding, Dashing, Knockback, Dead }
@@ -134,22 +136,29 @@ public class SlimeController : MonoBehaviour {
         if (isGrounded || currentState == PlayerState.WallSliding)
         {
             canAirDash = true;
+            canDoubleJump = true;
         }
 
         // ===== LOGIC NHẢY ĐÃ ĐƯỢC CẢI TIẾN =====
         if (Input.GetButtonDown("Jump"))
         {
-            // ƯU TIÊN 1: Nhảy Tường
-            // Nếu đang chạm tường, không trên mặt đất, và có kỹ năng -> Nhảy tường ngay!
+            // Ưu tiên 1: Nhảy Tường
             if (isTouchingWall && !isGrounded && HasAbility(AbilityType.WallClimb))
             {
                 WallJump();
+                // Khi nhảy tường, cũng nên reset lại canDoubleJump để có thể nhảy đôi sau đó
+                canDoubleJump = true;
             }
-            // ƯU TIÊN 2: Nhảy Thường
-            // Nếu không thể nhảy tường, thì kiểm tra xem có trên mặt đất không để nhảy thường
+            // Ưu tiên 2: Nhảy Thường (dưới đất)
             else if (isGrounded)
             {
                 Jump();
+            }
+            // ƯU TIÊN 3: NHẢY ĐÔI (trên không)
+            else if (HasAbility(AbilityType.DoubleJump) && canDoubleJump)
+            {
+                Jump(); // Dùng lại hàm Jump() thường
+                canDoubleJump = false; // Dùng mất lượt nhảy đôi
             }
         }
 
@@ -302,6 +311,7 @@ public class SlimeController : MonoBehaviour {
             if (ability == AbilityType.HighJump) spriteRenderer.color = highJumpColor;
             if (ability == AbilityType.Dash) spriteRenderer.color = dashColor;
             if (ability == AbilityType.WallClimb) spriteRenderer.color = wallClimbColor;
+            if (ability == AbilityType.DoubleJump) spriteRenderer.color = doubleJumpColor;
         }
     }
 

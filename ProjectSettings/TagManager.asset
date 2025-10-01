@@ -8,6 +8,7 @@ TagManager:
   - Hazard
   - Key
   - Door
+  - InstaKillHazard
   layers:
   - Default
   - TransparentFX
