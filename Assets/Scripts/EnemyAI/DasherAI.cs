@@ -3,10 +3,10 @@ using UnityEngine;
 
 public class DasherAI : MonoBehaviour {
     [Header("Dash Stats")]
-    public float dashSpeed = 8f;     // Tốc độ khi lướt
-    public float dashDuration = 0.3f; // Thời gian lướt
-    public float timeBetweenDashes = 3f; // Thời gian chờ giữa mỗi lần lướt
-    public float dashDistance = 3f; // Khoảng cách Dasher sẽ di chuyển khi dash (đứng tại chỗ, nhưng di chuyển một đoạn)
+    public float dashSpeed = 15f;     // Tốc độ khi lướt
+    public float dashDuration = 0.2f; // Thời gian lướt
+    public float timeBetweenDashes = 2f; // Thời gian chờ giữa mỗi lần lướt
+    public float dashDistance = 7f; // Khoảng cách Dasher sẽ di chuyển khi dash (đứng tại chỗ, nhưng di chuyển một đoạn)
 
     private Rigidbody2D rb;
     private bool isFacingRight = true;
