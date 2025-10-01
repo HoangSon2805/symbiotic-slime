@@ -6,7 +6,7 @@ public class SlimeController : MonoBehaviour {
     // === Các biến Public (để chỉnh trong Inspector) ===
     [Header("Movement Stats")]
     public float moveSpeed = 5f;
-    public float jumpForce = 10f;
+    public float jumpForce = 5.5f;
 
     [Header("Dash Ability")]
     public float dashForce = 20f;
