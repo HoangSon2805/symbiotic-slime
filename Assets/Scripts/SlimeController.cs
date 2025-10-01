@@ -310,7 +310,18 @@ public class SlimeController : MonoBehaviour {
     }
 
     private void OnTriggerEnter2D(Collider2D other) {
-        if (other.CompareTag("Hazard"))
+        // ƯU TIÊN KIỂM TRA CHẾT TỨC THÌ TRƯỚC
+        if (other.CompareTag("InstaKillHazard"))
+        {
+            // Nếu là lửa -> Chết ngay, không cần qua TakeDamage
+            if (currentState != PlayerState.Dead) // Kiểm tra để không gọi chết nhiều lần
+            {
+                ChangeState(PlayerState.Dead);
+                gameManager.StartRespawn(this.gameObject);
+            }
+        }
+        // Nếu không phải chết tức thì, mới kiểm tra các loại khác
+        else if (other.CompareTag("Hazard"))
         {
             TakeDamage(1, other.transform);
         } else if (other.CompareTag("Key"))

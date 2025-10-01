@@ -10,7 +10,7 @@ public class DasherAI : MonoBehaviour {
 
     private Rigidbody2D rb;
     private bool isFacingRight = true;
-    private bool isDashing = false;
+    //private bool isDashing = false;
     private Vector2 startPosition; // Vị trí ban đầu để Dasher luôn quay về
 
     void Start() {
@@ -30,7 +30,7 @@ public class DasherAI : MonoBehaviour {
             Flip(); // Quay đầu trước khi dash để dash theo hướng ngược lại
 
             // Bắt đầu Dash
-            isDashing = true;
+            //isDashing = true;
             // Áp dụng lực dash một lần
             rb.velocity = new Vector2(isFacingRight ? dashSpeed : -dashSpeed, rb.velocity.y);
 
@@ -38,7 +38,7 @@ public class DasherAI : MonoBehaviour {
             yield return new WaitForSeconds(dashDuration);
 
             // Kết thúc Dash
-            isDashing = false;
+            //isDashing = false;
             rb.velocity = Vector2.zero; // Ngừng di chuyển sau dash
             transform.position = startPosition; // Đảm bảo Dasher quay về vị trí ban đầu
 
